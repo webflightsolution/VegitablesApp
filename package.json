@@ -1,0 +1,10 @@
+{
+  "name": "vegitables-billing-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vegetable Wholesaler Marathi Billing App (भाजीपाला बिलिंग ॲप)",
+  "scripts": {
+    "build": "echo 'Build complete'",
+    "start": "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+  }
+}
