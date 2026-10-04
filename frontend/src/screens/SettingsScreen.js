@@ -186,7 +186,7 @@ export default function SettingsScreen({ currentUser, onLogout }) {
           style={[styles.input, { marginTop: 6 }]}
           value={serverUrl}
           onChangeText={setServerUrl}
-          placeholder="http://192.168.1.10:5000"
+          placeholder="https://vegitables-billing-api.onrender.com"
           autoCapitalize="none"
         />
 

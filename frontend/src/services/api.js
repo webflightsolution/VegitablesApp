@@ -2,8 +2,8 @@ import { Linking, Platform } from "react-native";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system";
 
-// Default API Base URL. On mobile Android it points to the computer's Wi-Fi IP so the APK connects immediately
-let API_BASE_URL = Platform.OS === "android" ? "http://172.24.90.207:5000" : "http://localhost:5000";
+// Default API Base URL: points to the live Render cloud backend
+let API_BASE_URL = "https://vegitables-billing-api.onrender.com";
 
 export const getApiBaseUrl = () => API_BASE_URL;
 
