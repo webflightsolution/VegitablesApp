@@ -187,3 +187,25 @@ python backend/test_integration.py
 - उधारी आणि रोख व्यवहारांचा स्वतंत्र हिशोब राहतो.
 - हिशोब झाल्यानंतर ग्राहकाला तात्काळ व्हॉट्सॲपवर पक्के बिल पाठवता येते.
 - इंटरनेट किंवा स्थानिक वायफायवर अत्यंत जलद गतीने काम करते.
+
+---
+
+## ☁️ Render वर बॅकएंड होस्ट करणे (Deploy on Render)
+
+हे ऍप्लिकेशन [Render.com](https://render.com) वर मोफत होस्ट करण्यासाठी `render.yaml` कॉन्फिगरेशन तयार आहे:
+
+### पद्धत १: Render Blueprints द्वारे (१-क्लिक सोपी पद्धत)
+1. [Render Dashboard](https://dashboard.render.com) वर लॉगिन करा.
+2. **"New +"** बटण दाबून **"Blueprint"** निवडा.
+3. तुमचे GitHub रिपॉझिटरी (`webflightsolution/VegitablesApp`) कनेक्ट करा.
+4. Render आपोआप `render.yaml` डिटेक्ट करून बॅकएंड सेवा सुरू करेल.
+
+### पद्धत २: Render Web Service द्वारे (Manual Setup)
+1. Render वर **"New Web Service"** निवडा आणि GitHub repo निवडा.
+2. खालील सेटिंग्ज भरा:
+   - **Name:** `vegitables-billing-api`
+   - **Runtime:** `Python 3`
+   - **Build Command:** `pip install --upgrade pip && pip install -r backend/requirements.txt`
+   - **Start Command:** `cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+3. **"Deploy Web Service"** दाबा.
+4. डिप्लॉय झाल्यावर तुम्हाला मिळालेली Render Live URL (उदा. `https://vegitables-billing-api.onrender.com`) मोबाईल ॲपच्या लॉगिन किंवा सेटिंग्ज स्क्रीनमध्ये सेव्ह करा!

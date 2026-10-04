@@ -155,10 +155,11 @@ def download_apk():
     import os
     from fastapi.responses import FileResponse
 
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     apk_paths = [
-        "c:/Antigravity Project/BillingApp/Bhajipala-Billing.apk",
-        "c:/Antigravity Project/BillingApp/frontend/android/app/build/outputs/apk/release/app-release.apk",
-        "c:/Antigravity Project/BillingApp/frontend/android/app/build/outputs/apk/debug/app-debug.apk"
+        os.path.join(base_dir, "Bhajipala-Billing.apk"),
+        os.path.join(base_dir, "frontend", "android", "app", "build", "outputs", "apk", "release", "app-release.apk"),
+        os.path.join(base_dir, "frontend", "android", "app", "build", "outputs", "apk", "debug", "app-debug.apk")
     ]
     for p in apk_paths:
         if os.path.exists(p):
