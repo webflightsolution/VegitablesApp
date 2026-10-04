@@ -9,7 +9,7 @@ from datetime import datetime
 try:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
@@ -478,16 +478,194 @@ def generate_bill_pdf(bill, settings) -> io.BytesIO:
     return io.BytesIO(b"%PDF-1.4\n%Fallback placeholder")
 
 
+_FONTS_REGISTERED = False
+
+def _register_marathi_fonts():
+    global _FONTS_REGISTERED
+    if _FONTS_REGISTERED:
+        return
+    try:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        font_dir = os.path.join(current_dir, "fonts")
+        reg_path = os.path.join(font_dir, "NotoSansDevanagari-Regular.ttf")
+        bold_path = os.path.join(font_dir, "NotoSansDevanagari-Bold.ttf")
+
+        if os.path.exists(reg_path):
+            pdfmetrics.registerFont(TTFont('Deva', reg_path))
+        if os.path.exists(bold_path):
+            pdfmetrics.registerFont(TTFont('DevaBold', bold_path))
+        _FONTS_REGISTERED = True
+    except Exception as ex:
+        print(f"Font registration warning: {ex}")
+
+
 def _generate_reportlab_fallback(bill, settings) -> io.BytesIO:
-    """Fallback ReportLab generator."""
+    """Full-featured ReportLab Marathi invoice generator for environments without headless Chrome (such as Render Cloud Linux)."""
+    _register_marathi_fonts()
+    registered = pdfmetrics.getRegisteredFontNames() if HAS_REPORTLAB else []
+    font_main = 'Deva' if 'Deva' in registered else 'Helvetica'
+    font_bold = 'DevaBold' if 'DevaBold' in registered else 'Helvetica-Bold'
+
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=25, leftMargin=25, topMargin=25, bottomMargin=25)
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=25,
+        leftMargin=25,
+        topMargin=20,
+        bottomMargin=20
+    )
+
+    styles = {
+        'Invoc': ParagraphStyle('Invoc', fontName=font_bold, fontSize=10, leading=12, alignment=1, textColor=colors.HexColor('#616161')),
+        'ShopTitle': ParagraphStyle('ShopTitle', fontName=font_bold, fontSize=19, leading=23, alignment=1, textColor=colors.HexColor('#1B5E20')),
+        'ShopSub': ParagraphStyle('ShopSub', fontName=font_main, fontSize=10, leading=14, alignment=1, textColor=colors.HexColor('#2E7D32')),
+        'ShopAddr': ParagraphStyle('ShopAddr', fontName=font_main, fontSize=9, leading=13, alignment=1, textColor=colors.HexColor('#424242')),
+        'MetaLabel': ParagraphStyle('ML', fontName=font_bold, fontSize=9.5, leading=13, textColor=colors.HexColor('#1B5E20')),
+        'MetaVal': ParagraphStyle('MV', fontName=font_main, fontSize=9.5, leading=13, textColor=colors.HexColor('#212121')),
+        'TH': ParagraphStyle('TH', fontName=font_bold, fontSize=9, leading=12, alignment=1, textColor=colors.white),
+        'TC': ParagraphStyle('TC', fontName=font_main, fontSize=9, leading=12),
+        'TCRight': ParagraphStyle('TCR', fontName=font_main, fontSize=9, leading=12, alignment=2),
+        'TCBoldRight': ParagraphStyle('TCBR', fontName=font_bold, fontSize=9, leading=12, alignment=2, textColor=colors.HexColor('#1B5E20')),
+        'TotalLabel': ParagraphStyle('TL', fontName=font_bold, fontSize=9.5, leading=13, alignment=2, textColor=colors.HexColor('#1B5E20')),
+        'TotalVal': ParagraphStyle('TV', fontName=font_bold, fontSize=9.5, leading=13, alignment=2, textColor=colors.HexColor('#1B5E20')),
+        'GrandLabel': ParagraphStyle('GL', fontName=font_bold, fontSize=11.5, leading=15, alignment=2, textColor=colors.HexColor('#1B5E20')),
+        'GrandVal': ParagraphStyle('GV', fontName=font_bold, fontSize=12.5, leading=15, alignment=2, textColor=colors.HexColor('#1B5E20')),
+        'FooterText': ParagraphStyle('FT', fontName=font_main, fontSize=8.5, leading=12, textColor=colors.HexColor('#555555')),
+        'FooterBold': ParagraphStyle('FB', fontName=font_bold, fontSize=9, leading=12, alignment=1, textColor=colors.HexColor('#2E7D32')),
+    }
+
     elements = []
-    # Simplified ReportLab build
-    p_style = ParagraphStyle('Head', fontName='Helvetica-Bold', fontSize=14, alignment=1)
-    elements.append(Paragraph(f"Bill: {bill.bill_number}", p_style))
-    elements.append(Paragraph(f"Customer: {bill.customer_name}", p_style))
-    elements.append(Paragraph(f"Total: Rs. {bill.grand_total}", p_style))
+
+    # Header
+    elements.append(Paragraph('।। श्री गणेशाय नमः ।।', styles['Invoc']))
+    elements.append(Spacer(1, 2))
+    shop_title = settings.shop_name if settings and settings.shop_name else 'श्री गणेश व्हेजिटेबल ट्रेडर्स'
+    elements.append(Paragraph(shop_title, styles['ShopTitle']))
+    
+    if settings and settings.tagline:
+        elements.append(Paragraph(settings.tagline, styles['ShopSub']))
+    
+    addr_parts = []
+    if settings and settings.address:
+        addr_parts.append(settings.address)
+    if settings and settings.mobile:
+        addr_parts.append(f"मोबाईल: {settings.mobile}")
+    if addr_parts:
+        elements.append(Paragraph(" | ".join(addr_parts), styles['ShopAddr']))
+
+    elements.append(Spacer(1, 6))
+    elements.append(HRFlowable(width='100%', thickness=1.5, color=colors.HexColor('#1B5E20'), spaceBefore=2, spaceAfter=8))
+
+    # Meta table
+    cust_name = bill.customer_name or "रोख ग्राहक"
+    cust_mob = bill.customer_mobile or "-"
+    b_date = bill.bill_date or datetime.now().strftime("%Y-%m-%d")
+    b_num = bill.bill_number or "बिल"
+    p_status = bill.payment_status or "रोख"
+
+    meta_data = [
+        [Paragraph('बिल क्र.:', styles['MetaLabel']), Paragraph(b_num, styles['MetaVal']), Paragraph('ग्राहकाचे नाव:', styles['MetaLabel']), Paragraph(cust_name, styles['MetaVal'])],
+        [Paragraph('दिनांक:', styles['MetaLabel']), Paragraph(b_date, styles['MetaVal']), Paragraph('मोबाइल नं.:', styles['MetaLabel']), Paragraph(cust_mob, styles['MetaVal'])],
+        [Paragraph('पेमेंट पद्धत:', styles['MetaLabel']), Paragraph(p_status, styles['MetaVal']), Paragraph('', styles['MetaLabel']), Paragraph('', styles['MetaVal'])],
+    ]
+    t_meta = Table(meta_data, colWidths=[65, 180, 85, 215])
+    t_meta.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F1F8E9')),
+        ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor('#C8E6C9')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LEFTPADDING', (0,0), (-1,-1), 8),
+        ('RIGHTPADDING', (0,0), (-1,-1), 8),
+    ]))
+    elements.append(t_meta)
+    elements.append(Spacer(1, 10))
+
+    # Items Table
+    t_items_data = [
+        [
+            Paragraph('अ.क्र.', styles['TH']),
+            Paragraph('भाजीपाला तपशील', styles['TH']),
+            Paragraph('व्हेंडर / शेतकरी', styles['TH']),
+            Paragraph('एकक', styles['TH']),
+            Paragraph('प्रमाण', styles['TH']),
+            Paragraph('दर (₹)', styles['TH']),
+            Paragraph('रक्कम (₹)', styles['TH']),
+        ]
+    ]
+
+    for idx, item in enumerate(bill.items, start=1):
+        v_name = item.vendor.name if item.vendor else "सामाईक / थेट"
+        qty_str = f"{item.quantity:g}"
+        rate_str = f"{item.rate:,.2f}"
+        amt_str = f"{item.amount:,.2f}"
+        t_items_data.append([
+            Paragraph(str(idx), styles['TH']),
+            Paragraph(item.item_name, styles['TC']),
+            Paragraph(v_name, styles['TC']),
+            Paragraph(item.unit or "किलो", styles['TC']),
+            Paragraph(qty_str, styles['TCRight']),
+            Paragraph(f"₹ {rate_str}", styles['TCRight']),
+            Paragraph(f"₹ {amt_str}", styles['TCBoldRight']),
+        ])
+
+    t_items = Table(t_items_data, colWidths=[30, 145, 115, 75, 45, 65, 70])
+    t_items.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1B5E20')),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#C8E6C9')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING', (0,0), (-1,-1), 5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F9FBF9')]),
+    ]))
+    elements.append(t_items)
+    elements.append(Spacer(1, 8))
+
+    # Totals Table
+    subtotal_str = f"₹ {bill.subtotal:,.2f}"
+    grand_str = f"₹ {bill.grand_total:,.2f}"
+    totals_data = [
+        [Paragraph('भाजीपाला एकूण (Subtotal):', styles['TotalLabel']), Paragraph(subtotal_str, styles['TotalVal'])]
+    ]
+    if bill.transport_charges and bill.transport_charges > 0:
+        totals_data.append([
+            Paragraph('वाहतूक / हमाली खर्च (+):', styles['TotalLabel']),
+            Paragraph(f"+ ₹ {bill.transport_charges:,.2f}", styles['TotalVal'])
+        ])
+    if bill.discount and bill.discount > 0:
+        totals_data.append([
+            Paragraph('विशेष सवलत / सूट (-):', styles['TotalLabel']),
+            Paragraph(f"- ₹ {bill.discount:,.2f}", styles['TotalVal'])
+        ])
+    totals_data.append([
+        Paragraph('अंतिम एकूण देय रक्कम:', styles['GrandLabel']),
+        Paragraph(grand_str, styles['GrandVal'])
+    ])
+
+    t_totals = Table(totals_data, colWidths=[385, 160])
+    t_totals.setStyle(TableStyle([
+        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#E8F5E9')),
+        ('LINEABOVE', (0,-1), (-1,-1), 1.5, colors.HexColor('#1B5E20')),
+        ('LINEBELOW', (0,-1), (-1,-1), 1.5, colors.HexColor('#1B5E20')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING', (0,0), (-1,-1), 3),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+    ]))
+    elements.append(t_totals)
+    elements.append(Spacer(1, 12))
+
+    # Footer
+    if settings and settings.upi_id:
+        elements.append(Paragraph(f"<b>ऑनलाइन पेमेंट (UPI):</b> {settings.upi_id}", styles['FooterText']))
+    if bill.notes:
+        elements.append(Paragraph(f"<b>विशेष नोंद / शेरा:</b> {bill.notes}", styles['FooterText']))
+    if settings and settings.terms:
+        elements.append(Paragraph(f"<b>नियम व अटी:</b> {settings.terms}", styles['FooterText']))
+
+    elements.append(Spacer(1, 10))
+    elements.append(Paragraph('।। पुन्हा भेट द्या । धन्यवाद ।।', styles['FooterBold']))
+
     doc.build(elements)
     buffer.seek(0)
     return buffer

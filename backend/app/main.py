@@ -7,10 +7,13 @@ from typing import List, Optional
 
 from .database import engine, Base, get_db
 from . import models, schemas, crud
-from .pdf_generator import generate_bill_pdf
+from .pdf_generator import generate_bill_pdf, generate_html_invoice
 
-# Initialize Database Tables
-Base.metadata.create_all(bind=engine)
+# Initialize Database Tables resiliently
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as ex:
+    print(f"Database initialization warning: {ex}")
 
 app = FastAPI(
     title="भाजीपाला घाऊक बिलिंग प्रणाली API (Vegetable Wholesaler Billing API)",
@@ -445,6 +448,38 @@ def get_bill_pdf(bill_id: int, db: Session = Depends(get_db)):
             "Access-Control-Expose-Headers": "Content-Disposition"
         }
     )
+
+
+@app.get("/api/bills/{bill_id}/html", response_class=HTMLResponse)
+def get_bill_html(bill_id: int, db: Session = Depends(get_db)):
+    """एचटीएमएल स्वरूपातील बिल (थेट पाहण्यासाठी किंवा मोबाइल प्रिंटसाठी)"""
+    bill = crud.get_bill(db, bill_id)
+    if not bill:
+        raise HTTPException(status_code=404, detail="बिल सापडले नाही.")
+    settings = crud.get_settings(db)
+    return HTMLResponse(generate_html_invoice(bill, settings))
+
+
+@app.get("/api/bills/{bill_id}/view", response_class=HTMLResponse)
+def view_bill_page(bill_id: int, db: Session = Depends(get_db)):
+    """मोबाईल व संगणकावर बिल पाहणे, थेट प्रिंट करणे व सेव्ह करणे"""
+    bill = crud.get_bill(db, bill_id)
+    if not bill:
+        raise HTTPException(status_code=404, detail="बिल सापडले नाही.")
+    settings = crud.get_settings(db)
+    raw_html = generate_html_invoice(bill, settings)
+    
+    top_bar = f"""
+    <div style="background: #1B5E20; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 999; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+        <span style="color: white; font-weight: bold; font-family: sans-serif; font-size: 15px;">।। भाजीपाला बिलिंग ।।</span>
+        <div>
+            <button onclick="window.print()" style="background: #FFFFFF; color: #1B5E20; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; font-size: 14px; cursor: pointer; margin-right: 8px;">🖨️ प्रिंट / PDF सेव्ह करा</button>
+            <a href="/api/bills/{bill_id}/pdf" style="background: #81C784; color: #1B5E20; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 14px;">⬇️ थेट PDF डाऊनलोड</a>
+        </div>
+    </div>
+    """
+    styled_html = raw_html.replace("<body>", f"<body>{top_bar}")
+    return HTMLResponse(styled_html)
 
 
 @app.get("/api/bills/{bill_id}/whatsapp-link")
