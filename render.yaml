@@ -10,3 +10,5 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
+      - key: DATABASE_URL
+        value: "postgresql://postgres.figwgqsbsfnukitcvqzb:Bhajiwala123@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres"
