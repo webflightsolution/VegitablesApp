@@ -197,7 +197,7 @@ export default function LoginScreen({ onLoginSuccess }) {
                     setServerUrl(txt);
                     setIpSaveSuccess(false);
                   }}
-                  placeholder="उदा. http://172.24.90.207:8000"
+                  placeholder="उदा. http://172.24.90.207:5000"
                   placeholderTextColor={COLORS.textMuted}
                   autoCapitalize="none"
                 />

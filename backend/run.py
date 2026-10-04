@@ -14,7 +14,7 @@ if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))
+    port = int(os.getenv("PORT", 5000))
     host = os.getenv("HOST", "0.0.0.0")
     print(f"[START] Bhajipala Billing Server starting on http://{host}:{port}")
     print(f"[DOCS] API Documentation: http://localhost:{port}/docs")

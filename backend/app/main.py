@@ -44,7 +44,7 @@ def read_root():
         "संदेश": "भाजीपाला घाऊक बिलिंग प्रणाली API सक्रिय आहे.",
         "status": "online",
         "version": "1.0.0",
-        "qr_page": "http://localhost:8000/qr"
+        "qr_page": "http://localhost:5000/qr"
     }
 
 
@@ -182,7 +182,7 @@ def get_apk_download_page():
     except Exception:
         local_ip = "172.24.90.207"
 
-    download_url = f"http://{local_ip}:8000/download-apk"
+    download_url = f"http://{local_ip}:5000/download-apk"
     import qrcode, base64, io
     qr = qrcode.QRCode(version=1, box_size=8, border=3)
     qr.add_data(download_url)
