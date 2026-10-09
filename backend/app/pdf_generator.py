@@ -525,6 +525,7 @@ def _generate_reportlab_fallback(bill, settings) -> io.BytesIO:
         'MetaVal': ParagraphStyle('MV', fontName=font_main, fontSize=9.5, leading=13, textColor=colors.HexColor('#212121')),
         'TH': ParagraphStyle('TH', fontName=font_bold, fontSize=9, leading=12, alignment=1, textColor=colors.white),
         'TC': ParagraphStyle('TC', fontName=font_main, fontSize=9, leading=12),
+        'TCCenter': ParagraphStyle('TCC', fontName=font_main, fontSize=9, leading=12, alignment=1),
         'TCRight': ParagraphStyle('TCR', fontName=font_main, fontSize=9, leading=12, alignment=2),
         'TCBoldRight': ParagraphStyle('TCBR', fontName=font_bold, fontSize=9, leading=12, alignment=2, textColor=colors.HexColor('#1B5E20')),
         'TotalLabel': ParagraphStyle('TL', fontName=font_bold, fontSize=9.5, leading=13, alignment=2, textColor=colors.HexColor('#1B5E20')),
@@ -601,7 +602,7 @@ def _generate_reportlab_fallback(bill, settings) -> io.BytesIO:
         rate_str = f"{item.rate:,.2f}"
         amt_str = f"{item.amount:,.2f}"
         t_items_data.append([
-            Paragraph(str(idx), styles['TH']),
+            Paragraph(str(idx), styles['TCCenter']),
             Paragraph(item.item_name, styles['TC']),
             Paragraph(v_name, styles['TC']),
             Paragraph(item.unit or "किलो", styles['TC']),

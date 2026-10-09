@@ -2,6 +2,7 @@ import { Linking, Platform } from "react-native";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system";
 import * as Print from "expo-print";
+import { printBill, shareBillPdf, generateBillHtml } from "./billPdfService";
 
 // Default API Base URL: points to the live Render cloud backend
 let API_BASE_URL = "https://vegitables-billing-api.onrender.com";
@@ -102,8 +103,24 @@ export const api = {
   getPdfUrl: (billId) => `${API_BASE_URL}/api/bills/${billId}/pdf`,
   getWhatsAppLink: (billId) => apiRequest(`/api/bills/${billId}/whatsapp-link`),
 
+  // Print Bill or Save as PDF using native Android print preview
+  printBill: async (bill, settings = {}) => {
+    return await printBill(bill, settings);
+  },
+
+  // Share PDF file directly via WhatsApp/Telegram/Drive
+  sharePdf: async (bill, settings = {}) => {
+    return await shareBillPdf(bill, settings);
+  },
+
   // Open PDF in browser or download & share via native share sheet
-  openPdf: async (billId, billNumber = "bill") => {
+  openPdf: async (billOrId, billNumber = "bill", settings = {}) => {
+    // If full bill object is available, generate locally with 100% Devanagari text shaping
+    if (typeof billOrId === "object" && billOrId !== null && billOrId.items) {
+      return await printBill(billOrId, settings);
+    }
+
+    const billId = typeof billOrId === "object" ? billOrId.id : billOrId;
     const pdfUrl = `${API_BASE_URL}/api/bills/${billId}/pdf`;
     const htmlUrl = `${API_BASE_URL}/api/bills/${billId}/html`;
     const viewUrl = `${API_BASE_URL}/api/bills/${billId}/view`;
@@ -120,18 +137,8 @@ export const api = {
         if (htmlRes.ok) {
           const htmlContent = await htmlRes.text();
           if (htmlContent && htmlContent.includes("<html")) {
-            const printRes = await Print.printToFileAsync({ html: htmlContent });
-            if (printRes && printRes.uri) {
-              const canShare = await Sharing.isAvailableAsync();
-              if (canShare) {
-                await Sharing.shareAsync(printRes.uri, {
-                  mimeType: "application/pdf",
-                  dialogTitle: `मराठी बिल - ${billNumber}`,
-                  UTI: "com.adobe.pdf",
-                });
-                return;
-              }
-            }
+            await Print.printAsync({ html: htmlContent });
+            return;
           }
         }
       } catch (localPrintErr) {

@@ -16,7 +16,9 @@ import { api } from "../services/api";
 
 export default function BillDetailScreen({ billId, onBack, onBillDeleted }) {
   const [bill, setBill] = useState(null);
+  const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     loadBill();
@@ -25,13 +27,43 @@ export default function BillDetailScreen({ billId, onBack, onBillDeleted }) {
   const loadBill = async () => {
     try {
       setLoading(true);
-      const data = await api.getBill(billId);
-      setBill(data);
+      const [billData, settingsData] = await Promise.allSettled([
+        api.getBill(billId),
+        api.getSettings(),
+      ]);
+      if (billData.status === "fulfilled") setBill(billData.value);
+      if (settingsData.status === "fulfilled") setSettings(settingsData.value);
     } catch (err) {
       console.warn("Failed to load bill:", err);
       Alert.alert("त्रुटी", "बिलाचा तपशील आणता आला नाही.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePrint = async () => {
+    if (!bill) return;
+    try {
+      setActionLoading(true);
+      await api.printBill(bill, settings || {});
+    } catch (err) {
+      console.warn("Print error:", err);
+      Alert.alert("प्रिंट त्रुटी", err.message || "बिल प्रिंट करता आले नाही.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSharePdf = async () => {
+    if (!bill) return;
+    try {
+      setActionLoading(true);
+      await api.sharePdf(bill, settings || {});
+    } catch (err) {
+      console.warn("Share PDF error:", err);
+      Alert.alert("शेअर त्रुटी", err.message || "PDF शेअर करता आली नाही.");
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -146,24 +178,49 @@ export default function BillDetailScreen({ billId, onBack, onBillDeleted }) {
         </View>
       </View>
 
-      {/* Action Buttons: WhatsApp & PDF */}
+      {/* Action Buttons: Print PDF, Share PDF & WhatsApp */}
       <View style={styles.actionButtonsWrap}>
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[styles.halfActionBtn, { backgroundColor: "#C62828" }]}
+            onPress={handlePrint}
+            activeOpacity={0.85}
+            disabled={actionLoading}
+          >
+            {actionLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <MaterialCommunityIcons name="file-pdf-box" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.halfActionBtnText}>PDF पहा / प्रिंट</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.halfActionBtn, { backgroundColor: COLORS.primary }]}
+            onPress={handleSharePdf}
+            activeOpacity={0.85}
+            disabled={actionLoading}
+          >
+            {actionLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <MaterialCommunityIcons name="share-variant" size={19} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.halfActionBtnText}>PDF शेअर करा</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+
         <TouchableOpacity
           style={[styles.bigActionBtn, { backgroundColor: COLORS.whatsapp }]}
           onPress={() => api.shareToWhatsApp(bill.id)}
           activeOpacity={0.88}
         >
-          <FontAwesome5 name="whatsapp" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.bigActionBtnText}>WhatsApp वर पाठवा</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.bigActionBtn, { backgroundColor: "#C62828" }]}
-          onPress={() => api.openPdf(bill.id, bill.bill_number)}
-          activeOpacity={0.88}
-        >
-          <MaterialCommunityIcons name="file-pdf-box" size={22} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.bigActionBtnText}>PDF बिल पहा / प्रिंट</Text>
+          <FontAwesome5 name="whatsapp" size={19} color="#FFFFFF" style={{ marginRight: 8 }} />
+          <Text style={styles.bigActionBtnText}>WhatsApp वर मेसेज पाठवा</Text>
         </TouchableOpacity>
       </View>
 
@@ -336,6 +393,25 @@ const styles = StyleSheet.create({
   },
   actionButtonsWrap: {
     marginBottom: 12,
+  },
+  actionRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 8,
+  },
+  halfActionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 10,
+    ...SHADOWS.sm,
+  },
+  halfActionBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13.5,
+    fontWeight: "bold",
   },
   bigActionBtn: {
     flexDirection: "row",
