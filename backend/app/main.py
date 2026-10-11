@@ -152,7 +152,7 @@ def get_qr_page():
     return HTMLResponse(content=html)
 
 
-@app.get("/download-apk")
+@app.api_route("/download-apk", methods=["GET", "HEAD"])
 def download_apk():
     """भाजीपाला बिलिंग अँड्रॉइड APK डाउनलोड"""
     import os
@@ -174,7 +174,7 @@ def download_apk():
     raise HTTPException(status_code=404, detail="APK फाइल अजून तयार होत आहे, कृपया काही सेकंद थांबा...")
 
 
-@app.get("/apk")
+@app.api_route("/apk", methods=["GET", "HEAD"], response_class=HTMLResponse)
 def get_apk_download_page():
     """APK डाउनलोड करण्यासाठी QR कोड आणि माहिती पान"""
     import socket
@@ -428,7 +428,7 @@ def delete_bill(bill_id: int, db: Session = Depends(get_db)):
 # PDF निर्मिती व शेअरिंग (MARATHI PDF & WHATSAPP SHARING)
 # ============================================================================
 
-@app.get("/api/bills/{bill_id}/pdf")
+@app.api_route("/api/bills/{bill_id}/pdf", methods=["GET", "HEAD"])
 def get_bill_pdf(bill_id: int, db: Session = Depends(get_db)):
     """मराठी भाषेतील व्यावसायिक PDF बिल तयार करून डाउनलोड करा"""
     bill = crud.get_bill(db, bill_id)
@@ -450,7 +450,7 @@ def get_bill_pdf(bill_id: int, db: Session = Depends(get_db)):
     )
 
 
-@app.get("/api/bills/{bill_id}/html", response_class=HTMLResponse)
+@app.api_route("/api/bills/{bill_id}/html", methods=["GET", "HEAD"], response_class=HTMLResponse)
 def get_bill_html(bill_id: int, db: Session = Depends(get_db)):
     """एचटीएमएल स्वरूपातील बिल (थेट पाहण्यासाठी किंवा मोबाइल प्रिंटसाठी)"""
     bill = crud.get_bill(db, bill_id)
@@ -460,7 +460,7 @@ def get_bill_html(bill_id: int, db: Session = Depends(get_db)):
     return HTMLResponse(generate_html_invoice(bill, settings))
 
 
-@app.get("/api/bills/{bill_id}/view", response_class=HTMLResponse)
+@app.api_route("/api/bills/{bill_id}/view", methods=["GET", "HEAD"], response_class=HTMLResponse)
 def view_bill_page(bill_id: int, db: Session = Depends(get_db)):
     """मोबाईल व संगणकावर बिल पाहणे, थेट प्रिंट करणे व सेव्ह करणे"""
     bill = crud.get_bill(db, bill_id)

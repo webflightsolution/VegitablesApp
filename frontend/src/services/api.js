@@ -2,10 +2,18 @@ import { Linking, Platform } from "react-native";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system";
 import * as Print from "expo-print";
-import { printBill, shareBillPdf, generateBillHtml } from "./billPdfService";
+import { printBill, shareBillPdf, generateBillHtml, openBillInWebWindow } from "./billPdfService";
 
-// Default API Base URL: points to the live Render cloud backend
+// Default API Base URL:
+// Auto-detect localhost if running on Web development machine, otherwise cloud backend
 let API_BASE_URL = "https://vegitables-billing-api.onrender.com";
+
+if (typeof window !== "undefined" && window.location) {
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1") {
+    API_BASE_URL = "http://localhost:5000";
+  }
+}
 
 export const getApiBaseUrl = () => API_BASE_URL;
 
@@ -103,53 +111,76 @@ export const api = {
   getPdfUrl: (billId) => `${API_BASE_URL}/api/bills/${billId}/pdf`,
   getWhatsAppLink: (billId) => apiRequest(`/api/bills/${billId}/whatsapp-link`),
 
-  // Print Bill or Save as PDF using native Android print preview
+  // Print Bill or Save as PDF using native Android print preview or web window
   printBill: async (bill, settings = {}) => {
-    return await printBill(bill, settings);
+    return await printBill(bill, settings, API_BASE_URL);
   },
 
-  // Share PDF file directly via WhatsApp/Telegram/Drive
+  // Share PDF file directly via WhatsApp/Telegram/Drive on mobile or download on web
   sharePdf: async (bill, settings = {}) => {
-    return await shareBillPdf(bill, settings);
+    return await shareBillPdf(bill, settings, API_BASE_URL);
   },
 
   // Open PDF in browser or download & share via native share sheet
   openPdf: async (billOrId, billNumber = "bill", settings = {}) => {
-    // If full bill object is available, generate locally with 100% Devanagari text shaping
-    if (typeof billOrId === "object" && billOrId !== null && billOrId.items) {
-      return await printBill(billOrId, settings);
+    let billObj = null;
+    let billId = null;
+
+    if (typeof billOrId === "object" && billOrId !== null) {
+      billObj = billOrId;
+      billId = billOrId.id;
+    } else {
+      billId = billOrId;
     }
 
-    const billId = typeof billOrId === "object" ? billOrId.id : billOrId;
-    const pdfUrl = `${API_BASE_URL}/api/bills/${billId}/pdf`;
-    const htmlUrl = `${API_BASE_URL}/api/bills/${billId}/html`;
-    const viewUrl = `${API_BASE_URL}/api/bills/${billId}/view`;
-
-    try {
-      if (Platform.OS === "web") {
-        window.open(viewUrl, "_blank");
-        return;
-      }
-
-      // 1. Try generating flawless native Android PDF via expo-print
+    // Ensure we have the full bill object with items
+    if (!billObj || !billObj.items || billObj.items.length === 0) {
       try {
-        const htmlRes = await fetch(htmlUrl);
-        if (htmlRes.ok) {
-          const htmlContent = await htmlRes.text();
-          if (htmlContent && htmlContent.includes("<html")) {
-            await Print.printAsync({ html: htmlContent });
-            return;
-          }
-        }
+        billObj = await api.getBill(billId);
+      } catch (e) {
+        console.warn("Could not fetch full bill object:", e);
+      }
+    }
+
+    // Ensure we have shop settings
+    let shopSettings = settings;
+    if (!shopSettings || Object.keys(shopSettings).length === 0) {
+      try {
+        shopSettings = await api.getSettings();
+      } catch (e) {
+        shopSettings = {};
+      }
+    }
+
+    // On Web: open the client-generated full Marathi invoice in a new tab with toolbar
+    if (Platform.OS === "web") {
+      if (billObj) {
+        const opened = openBillInWebWindow(billObj, shopSettings, false, API_BASE_URL);
+        if (opened) return;
+      }
+      // Direct PDF fallback on web
+      const pdfUrl = `${API_BASE_URL}/api/bills/${billId}/pdf`;
+      window.open(pdfUrl, "_blank");
+      return;
+    }
+
+    // On Mobile (Android / iOS):
+    // 1. Try local expo-print with Marathi Devanagari HTML template
+    if (billObj && billObj.items) {
+      try {
+        await printBill(billObj, shopSettings, API_BASE_URL);
+        return;
       } catch (localPrintErr) {
         console.warn("Local expo-print fallback:", localPrintErr);
       }
+    }
 
-      // 2. Fallback: Download server PDF with safe ASCII filename
+    // 2. Download backend PDF & share natively
+    const pdfUrl = `${API_BASE_URL}/api/bills/${billId}/pdf`;
+    try {
       const safeName = `bill_${billId}_${Date.now()}`;
       const fileUri = `${FileSystem.documentDirectory}${safeName}.pdf`;
       const downloadRes = await FileSystem.downloadAsync(pdfUrl, fileUri);
-      
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
         await Sharing.shareAsync(downloadRes.uri, {
@@ -158,11 +189,11 @@ export const api = {
           UTI: "com.adobe.pdf",
         });
       } else {
-        await Linking.openURL(viewUrl);
+        await Linking.openURL(pdfUrl);
       }
     } catch (err) {
-      console.warn("PDF open error, opening fallback URL:", err);
-      await Linking.openURL(viewUrl);
+      console.warn("PDF open error, opening URL:", err);
+      await Linking.openURL(pdfUrl);
     }
   },
 

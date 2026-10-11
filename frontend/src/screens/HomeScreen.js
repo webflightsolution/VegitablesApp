@@ -242,7 +242,7 @@ export default function HomeScreen({ onNavigate, onSelectBill }) {
 
               <TouchableOpacity
                 style={[styles.billActionBtn, styles.billPdfBtn]}
-                onPress={() => api.openPdf(bill.id, bill.bill_number)}
+                onPress={() => api.openPdf(bill, bill.bill_number)}
               >
                 <MaterialCommunityIcons name="file-pdf-box" size={18} color="#C62828" />
                 <Text style={[styles.billActionText, { color: "#C62828" }]}>PDF बिल</Text>

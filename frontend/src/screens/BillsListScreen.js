@@ -226,7 +226,7 @@ export default function BillsListScreen({ onSelectBill, onNavigate }) {
                   style={[styles.actionBtn, styles.pdfBtn]}
                   onPress={(e) => {
                     e.stopPropagation();
-                    api.openPdf(item.id, item.bill_number);
+                    api.openPdf(item, item.bill_number);
                   }}
                 >
                   <MaterialCommunityIcons name="file-pdf-box" size={16} color="#C62828" />

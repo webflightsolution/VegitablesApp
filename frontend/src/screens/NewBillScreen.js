@@ -764,7 +764,7 @@ export default function NewBillScreen({ onNavigate, onBillCreated }) {
             <TouchableOpacity
               style={[styles.modalActionBtn, { backgroundColor: "#C62828" }]}
               onPress={() => {
-                if (createdBill) api.openPdf(createdBill.id, createdBill.bill_number);
+                if (createdBill) api.openPdf(createdBill, createdBill.bill_number);
               }}
             >
               <MaterialCommunityIcons name="file-pdf-box" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />

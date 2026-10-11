@@ -405,18 +405,106 @@ export const generateBillHtml = (bill, settings = {}) => {
 };
 
 /**
- * Open native Android / iOS Print Preview directly.
+ * Open styled bill HTML in a new browser tab with action toolbar (Print / Download PDF / Close).
+ */
+export const openBillInWebWindow = (bill, settings = {}, autoPrint = false, apiBaseUrl = "") => {
+  if (Platform.OS !== "web" || typeof window === "undefined") return false;
+
+  const html = generateBillHtml(bill, settings);
+  const pdfDownloadUrl = apiBaseUrl && bill && bill.id ? `${apiBaseUrl}/api/bills/${bill.id}/pdf` : "";
+
+  const topBarHtml = `
+    <div id="no-print-bar" style="background: #1B5E20; color: white; padding: 10px 18px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 99999; box-shadow: 0 2px 10px rgba(0,0,0,0.2); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 18px;">🥬</span>
+        <span style="font-weight: bold; font-size: 15px;">।। भाजीपाला बिलिंग - ${bill.bill_number || "पावती"} ।।</span>
+      </div>
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <button onclick="window.print()" style="background: #FFFFFF; color: #1B5E20; border: none; padding: 7px 15px; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+          🖨️ प्रिंट / PDF सेव्ह करा
+        </button>
+        ${
+          pdfDownloadUrl
+            ? `<a href="${pdfDownloadUrl}" download="${bill.bill_number || "bill"}.pdf" target="_blank" style="background: #81C784; color: #1B5E20; text-decoration: none; padding: 7px 14px; border-radius: 6px; font-weight: bold; font-size: 13px; display: flex; align-items: center; gap: 5px;">
+                ⬇️ थेट PDF डाऊनलोड
+              </a>`
+            : ""
+        }
+        <button onclick="window.close()" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.6); padding: 7px 12px; border-radius: 6px; font-weight: 500; font-size: 13px; cursor: pointer;">
+          ✕ बंद करा
+        </button>
+      </div>
+    </div>
+    <style>
+      @media print {
+        #no-print-bar { display: none !important; }
+      }
+    </style>
+  `;
+
+  const finalHtml = html.replace("<body>", `<body>${topBarHtml}`);
+  try {
+    const printWin = window.open("", "_blank");
+    if (printWin) {
+      printWin.document.open();
+      printWin.document.write(finalHtml);
+      printWin.document.close();
+      printWin.focus();
+      if (autoPrint) {
+        setTimeout(() => {
+          try {
+            printWin.print();
+          } catch (e) {
+            console.warn("Auto-print error:", e);
+          }
+        }, 600);
+      }
+      return true;
+    }
+  } catch (err) {
+    console.warn("Failed to open web invoice window:", err);
+  }
+  return false;
+};
+
+/**
+ * Open native Android / iOS Print Preview directly, or web print preview.
  * Lets the user view full-page styled bill and save as PDF.
  */
-export const printBill = async (bill, settings) => {
+export const printBill = async (bill, settings, apiBaseUrl = "") => {
+  if (Platform.OS === "web") {
+    const success = openBillInWebWindow(bill, settings, true, apiBaseUrl);
+    if (success) return;
+  }
   const html = generateBillHtml(bill, settings);
   await Print.printAsync({ html });
 };
 
 /**
  * Generates the PDF file locally and triggers native Android Share dialog (WhatsApp, Drive, etc.).
+ * On web, triggers a direct PDF download.
  */
-export const shareBillPdf = async (bill, settings) => {
+export const shareBillPdf = async (bill, settings, apiBaseUrl = "") => {
+  if (Platform.OS === "web") {
+    if (apiBaseUrl && bill && bill.id) {
+      const pdfUrl = `${apiBaseUrl}/api/bills/${bill.id}/pdf`;
+      try {
+        const a = document.createElement("a");
+        a.href = pdfUrl;
+        a.download = `${bill.bill_number || "bill"}.pdf`;
+        a.target = "_blank";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        return pdfUrl;
+      } catch (e) {
+        console.warn("Direct download failed, opening in window:", e);
+      }
+    }
+    openBillInWebWindow(bill, settings, false, apiBaseUrl);
+    return null;
+  }
+
   const html = generateBillHtml(bill, settings);
   const file = await Print.printToFileAsync({ html });
   if (file && file.uri) {
